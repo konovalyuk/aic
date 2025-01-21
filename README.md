@@ -14,7 +14,7 @@ This project is a web-based application powered by Llama3.2-1B-Instruct, designe
 ```
 project/
 │
-├── app.py           # Main application logic
+├── run.py           # Main application logic
 ├── templates/       # HTML templates
 └── static/          # CSS/JS files
 
@@ -28,7 +28,7 @@ project/
    ```
 3. Run the application:
    ```bash
-   python app/app.py
+   python run.py
    ```
 4. Open your browser at `http://127.0.0.1:5000`.
 
