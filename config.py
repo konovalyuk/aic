@@ -13,8 +13,8 @@ class ModelConfig:
     MODEL_PARALLEL_SIZE = os.getenv('MODEL_PARALLEL_SIZE', 1)
     TEMPERATURE = os.getenv('TEMPERATURE', 0.6)
     TOP_P = os.getenv('TOP_P', 0.9)
-    MAX_GEN_LEN = os.getenv('MAX_GEN_LEN', 128)
-    MAX_DIALOG_LENGTH = os.getenv('MAX_DIALOG_LENGTH', 512)
+    MAX_GEN_LEN = os.getenv('MAX_GEN_LEN', 256)
+    MAX_DIALOG_LENGTH = os.getenv('MAX_DIALOG_LENGTH', 1024)
 
 
 class PDFConfig:

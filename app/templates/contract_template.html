@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Rental Contract</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+        }
+        h1, h2, h3 {
+            text-align: center;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section h2 {
+            border-bottom: 1px solid #000;
+            padding-bottom: 5px;
+        }
+        .signature {
+            margin-top: 40px;
+        }
+        .signature div {
+            display: inline-block;
+            width: 45%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Car Rental Contract</h1>
+
+    <div class="section">
+        <h2>Parties</h2>
+        <p><strong>Lessor:</strong> {{ lessor_name }}</p>
+        <p><strong>Lessee:</strong> {{ lessee_name }}</p>
+    </div>
+
+    <div class="section">
+        <h2>Vehicle Information</h2>
+        <p><strong>Make and Model:</strong> {{ vehicle_model }}</p>
+        <p><strong>License Plate:</strong> {{ license_plate }}</p>
+        <p><strong>Condition:</strong> {{ vehicle_condition }}</p>
+    </div>
+
+    <div class="section">
+        <h2>Rental Terms</h2>
+        <p><strong>Rental Period:</strong> From {{ rental_start_date }} to {{ rental_end_date }}</p>
+        <p><strong>Total Cost:</strong> {{ rental_cost }} USD</p>
+        <p><strong>Payment Terms:</strong> {{ payment_terms }}</p>
+    </div>
+
+    <div class="section">
+        <h2>Responsibilities</h2>
+        <p>{{ terms }}</p>
+    </div>
+
+    <div class="section">
+        <h2>Termination</h2>
+        <p>The contract may be terminated under the following conditions:</p>
+        <ul>
+            <li>Mutual agreement between the lessor and lessee.</li>
+            <li>Violation of the terms by either party.</li>
+            <li>Return of the vehicle in its original condition, barring normal wear and tear.</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Signatures</h2>
+        <div class="signature">
+            <div>
+                _________________________<br>
+                Lessor Signature
+            </div>
+            <div>
+                _________________________<br>
+                Lessee Signature
+            </div>
+        </div>
+    </div>
+
+    <p style="text-align: center; margin-top: 40px;">This contract was generated on {{ generation_date }}.</p>
+</body>
+</html>

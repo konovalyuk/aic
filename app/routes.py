@@ -1,15 +1,17 @@
 import os
-from flask import Flask, session
-from flask import render_template, request, send_file, redirect, url_for, jsonify
+from flask import Flask, session, render_template, request, send_file, redirect, url_for, jsonify
+from jinja2 import Template
 from werkzeug.utils import secure_filename
 from llama_models.llama3.api.datatypes import UserMessage, CompletionMessage, StopReason
 from app.ai import load_generator, truncate_dialog
+from app.extract_placeholders import extract_placeholders
 from app.pdf import create_pdf_with_unicode
 from config import ModelConfig, AppConfig
 from PyPDF2 import PdfReader
 import logging
 import docx
 from app.chat_completion import chat
+from weasyprint import HTML
 
 # Init Flask application
 app = Flask(__name__)
@@ -180,3 +182,132 @@ def download_file(filename):
     Позволяет скачать PDF-файл.
     """
     return send_file(os.path.join(AppConfig.UPLOAD_FOLDER, filename), as_attachment=True)
+
+
+# ------------------------------------
+
+@app.route('/custom_upload', methods=['GET', 'POST'])
+def custom_upload():
+    """Обработка загрузки HTML-шаблона контракта."""
+    if request.method == 'POST':
+        uploaded_file = request.files['html']
+        if uploaded_file and uploaded_file.filename.endswith('.html'):
+            file_path = os.path.join(AppConfig.UPLOAD_FOLDER, uploaded_file.filename)
+            uploaded_file.save(file_path)
+
+            # Используем Llama-модель для извлечения placeholders
+            placeholders = extract_placeholders(file_path)
+
+            # Сохраняем placeholders в сессии
+            session['placeholders'] = placeholders
+            session['template_path'] = file_path
+
+            return redirect(url_for('custom_dialog'))
+
+    return render_template('custom_upload.html')
+
+
+@app.route('/custom_dialog', methods=['GET', 'POST'])
+def custom_dialog():
+    if request.method == 'GET':
+        placeholders = session.get('placeholders', [])
+        return render_template('custom_dialog.html', placeholders=placeholders)
+
+    print("Raw session data:", session)
+    data = request.get_json()
+    user_message = data.get('message')
+    session_id = data.get('session_id')
+    model = data.get('model')
+    print("!!! custom_dialog. data:", data)
+
+    # Генерация ответа AI
+    response_message = generate_ai_response(user_message, model, session_id)
+    # response_message = ""
+
+    return response_message
+    # return jsonify({'message': response_message})
+
+
+def generate_ai_response(user_message, model, session_id):
+    if not user_message:
+        return jsonify({'error': 'Message cannot be empty.'}), 400
+
+    if not model:
+        return jsonify({'error': 'AI model not selected.'}), 400
+
+    # Получение или инициализация диалога в сессии
+    dialog = session.get(session_id, [])
+    dialog = [
+        (UserMessage(**msg) if msg['role'] == 'user' else CompletionMessage(
+            **{**msg, "stop_reason": StopReason(msg["stop_reason"])}  # Преобразование строки в StopReason
+        ))
+        for msg in dialog
+    ]
+    print("Deserialized dialog:", dialog)
+
+    try:
+        # Get assistant message
+        assistant_message = chat(generator, dialog, user_message)
+        print("!!! assistant_message:", assistant_message)
+        dialog.append(assistant_message)
+
+        # Определение и сохранение значений placeholders
+        placeholders = session.get('placeholders', [])
+        for placeholder in placeholders:
+            if placeholder in user_message:
+                session[placeholder] = extract_placeholder_value(user_message, placeholder)
+
+        session[session_id] = [
+            {
+                **msg.dict(),
+                "stop_reason": msg.stop_reason.value  # Преобразование StopReason в строку
+            } if isinstance(msg, CompletionMessage) else msg.dict()
+            for msg in dialog
+        ]
+
+        return jsonify({'message': assistant_message.content})
+
+    except Exception as e:
+        logging.error("Error during dialog processing", exc_info=e)
+        return jsonify({'error': 'Failed to generate a response.'}), 500
+
+
+def extract_placeholder_value(user_message, placeholder):
+    # Простейший пример выделения значений для placeholders
+    # Можно улучшить, используя регулярные выражения или NLP-техники
+    parts = user_message.split(placeholder)
+    if len(parts) > 1:
+        value = parts[1].strip().split()[0]  # Предполагаем, что значение идёт сразу после placeholder
+        return value
+    return ""
+
+
+@app.route('/custom_generate_pdf', methods=['POST'])
+def custom_generate_pdf():
+    """Генерация PDF из заполненного шаблона."""
+    template_path = session.get('template_path')
+    placeholders = session.get('placeholders', [])
+    data = request.get_json()  # Получаем данные из JSON-запроса
+
+    print("!!! placeholders:", placeholders)
+    print("!!! data:", data)
+
+    # Проверка данных на соответствие placeholders
+    values = {key: data.get(key, '') for key in placeholders}
+    print("!!! values:", values)
+
+    # Рендеринг шаблона
+    with open(template_path, 'r', encoding='utf-8') as file:
+        template_content = file.read()
+    template = Template(template_content)
+    rendered_html = template.render(values)
+
+    # Генерация PDF из заполненного шаблона
+    pdf_output_path = os.path.join(AppConfig.UPLOAD_FOLDER, "generated_contract.pdf")
+    HTML(string=rendered_html).write_pdf(pdf_output_path)
+
+    try:
+        return jsonify({'pdf_url': f"/download/{os.path.basename(pdf_output_path)}"})
+    except Exception as e:
+        logging.error("Error while generating PDF", exc_info=e)
+        return jsonify({'error': 'Failed to create PDF.'}), 500
